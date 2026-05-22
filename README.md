@@ -23,3 +23,7 @@ Some entire platforms are blocked, so any email sent from those platforms will b
 * NGP VAN https://en.wikipedia.org/wiki/NGP_VAN
 * Action Network https://actionnetwork.org/
 * Action Kit (NGP VAN subsidiary)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.

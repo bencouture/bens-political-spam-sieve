@@ -1,10 +1,10 @@
-require ["reject", "envelope"];
+require ["reject", "envelope", "fileinto", "imap4flags"];
 
 # ==============================================================================
 # The Definitive Political Email Sieve Filter
 #
-# Version: 1.0
-# Last Updated: 2025-09-07
+# Version: 2.1
+# Last Updated: 2026-05-21
 #
 # Purpose:
 # This filter provides a comprehensive, multi-layered defense against unsolicited
@@ -12,20 +12,27 @@ require ["reject", "envelope"];
 # effective while minimizing false positives on non-political mail.
 #
 # Methodology:
-# The filter operates in two main stages within a single `anyof` block:
-#   1. Platform Fingerprinting: Identifies emails based on the technical
-#      infrastructure used to send them (e.g., specific ESPs, custom headers).
-#   2. Heuristic Analysis: Identifies emails based on common naming patterns
-#      and political jargon found in campaign and PAC domain names.
+# The filter operates in two tiers:
+#   1. Tier 1: High Confidence - Immediate reject for known political platforms
+#   2. Tier 2: Medium Confidence - File to "junk" folder for review
 #
-# Tiers:
-# The heuristic rules are separated into tiers of confidence. Tier 1 is
-# extremely safe. Tier 3 is highly aggressive and may block non-fundraising
-# advocacy mail; its rules are disabled by default.
+# Changes from v2.0:
+# - Added @ prefix to political campaign language patterns for better specificity
+#
+# Changes from v1.0:
+# - Removed overly broad patterns (support*, team*, elect*, defeat*)
+# - Separated into reject vs fileinto actions
+# - Moved election year patterns to Tier 2
+# ==============================================================================
+
+# ==============================================================================
+# Tier 1: High Confidence - Immediate Reject
+# Platform fingerprints and specific political domains that are extremely
+# unlikely to have false positives.
 # ==============================================================================
 
 if anyof(
-    # --- Section 1: Platform & Technical Fingerprints (Highest Confidence) ---
+    # --- Platform & Technical Fingerprints (Highest Confidence) ---
     # Targets the known infrastructure of political email service providers (ESPs).
 
     # Platforms identified via `List-Unsubscribe` or `Return-Path` (envelope)
@@ -51,11 +58,7 @@ if anyof(
     address :domain "from" "sarahkleehoodny.com",
     envelope :domain "from" "bounce.e.savethevoteamerica.org",
 
-    # --- Section 2: Heuristic & Pattern-Based Filtering ---
-    # Targets the naming conventions of campaign and PAC domains.
-
-    # Tier 1: High Confidence Patterns (Extremely Low Risk of False Positives)
-    # Office-specific domains
+    # --- Office-Specific Domains ---
     address :matches "from" "*forcongress.com",
     address :matches "from" "*forcongress.org",
     address :matches "from" "*forsenate.com",
@@ -65,13 +68,13 @@ if anyof(
     address :matches "from" "*forpresident.com",
     address :matches "from" "*forpresident.org",
 
-    # Official party campaign committees
+    # --- Official Party Campaign Committees ---
     address :matches "from" "*dccc.org",               # Democratic Congressional Campaign Committee
     address :matches "from" "*dscc.org",               # Democratic Senatorial Campaign Committee
     address :matches "from" "*nrcc.org",               # National Republican Congressional Committee
     address :matches "from" "*nrsc.org",               # National Republican Senatorial Committee
 
-    # Common top-tier PAC/Committee naming conventions
+    # --- Top-Tier PAC/Committee Naming Conventions ---
     address :matches "from" "*victoryfund.com",
     address :matches "from" "*victoryfund.org",
     address :matches "from" "*majoritypac.com",
@@ -83,58 +86,71 @@ if anyof(
     address :matches "from" "*senatemajority.com",
     address :matches "from" "*senatemajority.org",
     address :matches "from" "*housemajority.com",
-    address :matches "from" "*housemajority.org",
+    address :matches "from" "*housemajority.org"
 
-    # Future-proofing for upcoming federal election cycles
-    address :matches "from" "*2026.com", address :matches "from" "*2026.org",
-    address :matches "from" "*2028.com", address :matches "from" "*2028.org",
-    address :matches "from" "*2030.com", address :matches "from" "*2030.org",
-    address :matches "from" "*2032.com", address :matches "from" "*2032.org",
+) {
+    # If any of the above high-confidence conditions are met, reject the message.
+    reject "This message was unsolicited spam, have a garbage day";
+}
 
-    # Tier 2: Medium Confidence Patterns (Effective with Low Risk)
+# ==============================================================================
+# Tier 2: Medium Confidence - File to Junk
+# Patterns that may have false positives, filed to "junk" folder for review.
+# ==============================================================================
+
+elsif anyof(
+    # --- Action-Related Patterns ---
     address :matches "from" "*actionfund.com",
     address :matches "from" "*actionfund.org",
     address :matches "from" "*forourfuture.com",
     address :matches "from" "*forourfuture.org",
     address :matches "from" "*foramerica.com",
     address :matches "from" "*foramerica.org",
-    address :matches "from" "team*.com",
-    address :matches "from" "team*.org",
-    address :matches "from" "elect*.com",
-    address :matches "from" "elect*.org",
-    address :matches "from" "support*.com",
-    address :matches "from" "support*.org",
-    address :matches "from" "standwith*.com",
-    address :matches "from" "standwith*.org",
-    address :matches "from" "winbackthe*.com",
-    address :matches "from" "winbackthe*.org",
-    address :matches "from" "defendthe*.com",
-    address :matches "from" "defendthe*.org",
-    address :matches "from" "takebackthe*.com",
-    address :matches "from" "takebackthe*.org",
-    address :matches "from" "defeat*.com",
-    address :matches "from" "defeat*.org"
 
-    # Tier 3: Aggressive Patterns (High Risk of False Positives)
-    # These patterns can block non-fundraising mail from advocacy and non-profit
-    # groups. Enable rules by removing the '#' at your own discretion.
-    #
-    # address :matches "from" "americansfor*.com",
-    # address :matches "from" "americansfor*.org",
-    # address :matches "from" "peoplefor*.com",
-    # address :matches "from" "peoplefor*.org",
-    # address :matches "from" "fightfor*.com",
-    # address :matches "from" "fightfor*.org",
-    # address :matches "from" "stop*.com",
-    # address :matches "from" "stop*.org",
-    # address :matches "from" "secureour*.com",
-    # address :matches "from" "secureour*.org",
-    # address :matches "from" "*action.com",
-    # address :matches "from" "*action.org",
-    # address :matches "from" "join*.com",
-    # address :matches "from" "join*.org"
+    # --- Election Year Patterns ---
+    address :matches "from" "*2026.com",
+    address :matches "from" "*2026.org",
+    address :matches "from" "*2028.com",
+    address :matches "from" "*2028.org",
+    address :matches "from" "*2030.com",
+    address :matches "from" "*2030.org",
+    address :matches "from" "*2032.com",
+    address :matches "from" "*2032.org",
+
+    # --- Political Campaign Language ---
+    address :matches "from" "*@standwith*.com",
+    address :matches "from" "*@standwith*.org",
+    address :matches "from" "*@winbackthe*.com",
+    address :matches "from" "*@winbackthe*.org",
+    address :matches "from" "*@defendthe*.com",
+    address :matches "from" "*@defendthe*.org",
+    address :matches "from" "*@takebackthe*.com",
+    address :matches "from" "*@takebackthe*.org"
 
 ) {
-    # If any of the above conditions are met, reject the message.
-    reject "This message was unsolicited spam, have a garbage day";
+    # If any of the above medium-confidence conditions are met, file to junk.
+    addflag "\\Seen";
+    addflag "Political-Junk";
+    fileinto "junk";
 }
+
+# ==============================================================================
+# Tier 3: Aggressive Patterns (Disabled)
+# These patterns can block non-fundraising mail from advocacy and non-profit
+# groups. Enable rules by removing the '#' at your own discretion.
+# ==============================================================================
+
+# address :matches "from" "americansfor*.com",
+# address :matches "from" "americansfor*.org",
+# address :matches "from" "peoplefor*.com",
+# address :matches "from" "peoplefor*.org",
+# address :matches "from" "fightfor*.com",
+# address :matches "from" "fightfor*.org",
+# address :matches "from" "stop*.com",
+# address :matches "from" "stop*.org",
+# address :matches "from" "secureour*.com",
+# address :matches "from" "secureour*.org",
+# address :matches "from" "*action.com",
+# address :matches "from" "*action.org",
+# address :matches "from" "join*.com",
+# address :matches "from" "join*.org"
